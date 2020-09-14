@@ -6,37 +6,24 @@ from torchvision import datasets, transforms
 from torch.utils.data.sampler import SubsetRandomSampler
 
 
-def loaddataset(name, noise=0.2):
-    torch.manual_seed(7)
-    # several choices of datasets (e.g., with or without noise)
+def loaddataset(name):
+    """Function to load the datasets (mnist and cifar10)
 
-    if name == 'mnist-multiclass':
+    Parameters
+    ----------
+    name : string
+        name of the dataset ('mnist' or 'cifar10')
+
+    """
+    torch.manual_seed(7)
+
+    if name == 'mnist':
         transform = transforms.Compose(
             [transforms.ToTensor(), transforms.Normalize((0.1307,), (0.3081,))])
         train = datasets.MNIST(
             'mnist-data/', train=True, download=True, transform=transform)
         test = datasets.MNIST(
             'mnist-data/', train=False, download=True, transform=transform)
-
-    elif name == 'mnist-binary':
-        transform = transforms.Compose(
-            [transforms.ToTensor(), transforms.Normalize((0.1307,), (0.3081,))])
-        target_transform = transforms.Lambda(lambda x: 0 if x <= 4 else 1)
-        train = datasets.MNIST(
-            'mnist-data/', train=True, download=True, transform=transform, target_transform=target_transform)
-        test = datasets.MNIST(
-            'mnist-data/', train=False, download=True, transform=transform, target_transform=target_transform)
-
-    elif name == 'mnist-noise':
-        transform = transforms.Compose(
-            [transforms.ToTensor(), transforms.Normalize((0.1307,), (0.3081,))])
-        target_transform = transforms.Lambda(
-            lambda x: np.random.randint(0, 9) if np.random.rand() <= noise else x)
-        train = datasets.MNIST(
-            'mnist-data/', train=True, download=True, transform=transform, target_transform=target_transform)
-        test = datasets.MNIST(
-            'mnist-data/', train=False, download=True, transform=transform)
-
     elif name == 'cifar10':
         transform = transforms.Compose(
             [transforms.ToTensor(),
@@ -47,13 +34,39 @@ def loaddataset(name, noise=0.2):
             './data', train=True, download=True, transform=transform)
         test = datasets.CIFAR10(
             './data', train=False, download=True, transform=transform)
-
     else:
-        assert False
+        raise RuntimeError(f'Wrong dataset chosen {name}')
+
     return train, test
 
 
-def loadbatches(train, test, loader, batch_size, prior=False, perc_train=1.0, perc_prior=0.2):
+def loadbatches(train, test, loader_kargs, batch_size, prior=False, perc_train=1.0, perc_prior=0.2):
+    """Function to load the batches for the dataset
+
+    Parameters
+    ----------
+    train : torch dataset object
+        train split
+    
+    test : torch dataset object
+        test split 
+
+    loader_kargs : dictionary
+        loader arguments
+    
+    batch_size : int
+        size of the batch
+
+    prior : bool
+        boolean indicating the use of a learnt prior (e.g. this would be False for a random prior)
+
+    perc_train : float
+        percentage of data used for training (set to 1.0 if not intending to do data scarcity experiments)
+
+    perc_prior : float
+        percentage of data to use for building the prior (1-perc_prior is used to estimate the risk)
+
+    """
 
     ntrain = len(train.data)
     ntest = len(test.data)
@@ -69,13 +82,13 @@ def loadbatches(train, test, loader, batch_size, prior=False, perc_train=1.0, pe
         train_sampler = SubsetRandomSampler(train_idx)
 
         set_bound_1batch = torch.utils.data.DataLoader(
-            train, batch_size=len(train_idx), sampler=train_sampler, **loader)
+            train, batch_size=len(train_idx), sampler=train_sampler, **loader_kargs)
         test_1batch = torch.utils.data.DataLoader(
-            test, batch_size=ntest, shuffle=True, **loader)
+            test, batch_size=ntest, shuffle=True, **loader_kargs)
         train_loader = torch.utils.data.DataLoader(
-            train, batch_size=batch_size, sampler=train_sampler, **loader)
+            train, batch_size=batch_size, sampler=train_sampler, **loader_kargs)
         test_loader = torch.utils.data.DataLoader(
-            test, batch_size=batch_size, shuffle=True, **loader)
+            test, batch_size=batch_size, shuffle=True, **loader_kargs)
         prior_loader = None
         set_val_bound = train_loader
 
@@ -94,17 +107,17 @@ def loadbatches(train, test, loader, batch_size, prior=False, perc_train=1.0, pe
         valid_sampler = SubsetRandomSampler(valid_idx)
 
         set_bound_1batch = torch.utils.data.DataLoader(
-            train, batch_size=len(train_idx), sampler=train_sampler, **loader)
+            train, batch_size=len(train_idx), sampler=train_sampler, **loader_kargs)
         set_val_bound = torch.utils.data.DataLoader(
             train, batch_size=batch_size, sampler=train_sampler, shuffle=False)
         test_1batch = torch.utils.data.DataLoader(
-            test, batch_size=ntest, shuffle=True, **loader)
+            test, batch_size=ntest, shuffle=True, **loader_kargs)
         train_loader = torch.utils.data.DataLoader(
             train, batch_size=batch_size, sampler=all_train_sampler, shuffle=False)
         prior_loader = torch.utils.data.DataLoader(
             train, batch_size=batch_size, sampler=valid_sampler, shuffle=False)
         test_loader = torch.utils.data.DataLoader(
-            test, batch_size=batch_size, shuffle=True, **loader)
+            test, batch_size=batch_size, shuffle=True, **loader_kargs)
 
     # train_loader comprises all the data used in training and prior_loader the data used to build
     # the prior
