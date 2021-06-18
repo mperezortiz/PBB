@@ -1140,7 +1140,6 @@ def testNNet(net, test_loader, device='cuda', verbose=True):
     with torch.no_grad():
         for data, target in test_loader:
             data, target = data.to(device), target.to(device)
-            #import pdb; pdb.set_trace()
             outputs = net(data)
             loss = F.nll_loss(outputs, target)
             pred = outputs.max(1, keepdim=True)[1]
