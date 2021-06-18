@@ -6,6 +6,12 @@ This repository includes the code associated to the paper:
 
 There are a few examples of how to run the code in the running_example.py script. 
 
-Additional functionalities will be added in subsequent versions. 
+Additional functionalities will be added in subsequent versions.
+
+To create a conda environment to run these experiments in, simply run:
+
+``` bash
+$ conda create --name <envname> --file requirements.txt
+```
 
 If you have any questions don't hesitate to contact me!
