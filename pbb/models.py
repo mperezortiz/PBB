@@ -96,8 +96,8 @@ class Gaussian(nn.Module):
         # Computation of standard deviation:
         # We use rho instead of sigma so that sigma is always positive during
         # the optimisation. Specifically, we use sigma = log(exp(rho)+1)
-        m = nn.Softplus()
-        return m(self.rho)
+        return torch.log(1 + torch.exp(self.rho))
+        
 
     def sample(self):
         # Return a sample from the Gaussian distribution
@@ -1202,6 +1202,7 @@ def trainPNNet(net, optimizer, pbobj, epoch, train_loader, lambda_var=None, opti
         net.zero_grad()
         bound, kl, _, loss, err = pbobj.train_obj(
             net, data, target, lambda_var=lambda_var, clamping=clamping)
+
         bound.backward()
         optimizer.step()
         avgbound += bound.item()
