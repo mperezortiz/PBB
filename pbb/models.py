@@ -266,9 +266,16 @@ class ProbLinear(nn.Module):
     init_layer : Linear object
         Linear layer object used to initialise the prior
 
+    init_prior : string
+        string that indicates the way to initialise the prior:
+        *"weights" = initialise with init_layer
+        *"zeros" = initialise with zeros and rho prior
+        *"random" = initialise with random weights and rho prior
+        *""
+
     """
 
-    def __init__(self, in_features, out_features, rho_prior, prior_dist='gaussian', device='cuda', init_layer=None):
+    def __init__(self, in_features, out_features, rho_prior, prior_dist='gaussian', device='cuda', init_prior='weights', init_layer=None, init_layer_prior=None):
         super().__init__()
         self.in_features = in_features
         self.out_features = out_features
@@ -288,6 +295,24 @@ class ProbLinear(nn.Module):
         weights_rho_init = torch.ones(out_features, in_features) * rho_prior
         bias_rho_init = torch.ones(out_features) * rho_prior
 
+        if init_prior == 'zeros':
+            bias_mu_prior = torch.zeros(out_features) 
+            weights_mu_prior = torch.zeros(out_features, in_features)
+        elif init_prior == 'random':
+            weights_mu_prior = trunc_normal_(torch.Tensor(
+                out_features, in_features), 0, sigma_weights, -2*sigma_weights, 2*sigma_weights)
+            bias_mu_prior = torch.zeros(out_features) 
+        elif init_prior == 'weights': 
+            if init_layer_prior:
+                weights_mu_prior = init_layer_prior.weight
+                bias_mu_prior = init_layer_prior.bias
+            else:
+                # otherwise initialise to posterior weights
+                weights_mu_prior = weights_mu_init
+                bias_mu_prior = bias_mu_init
+        else: 
+            raise RuntimeError(f'Wrong type of prior initialisation!')
+
         if prior_dist == 'gaussian':
             dist = Gaussian
         elif prior_dist == 'laplace':
@@ -300,9 +325,9 @@ class ProbLinear(nn.Module):
         self.weight = dist(weights_mu_init.clone(),
                            weights_rho_init.clone(), device=device, fixed=False)
         self.weight_prior = dist(
-            weights_mu_init.clone(), weights_rho_init.clone(), device=device, fixed=True)
+            weights_mu_prior.clone(), weights_rho_init.clone(), device=device, fixed=True)
         self.bias_prior = dist(
-            bias_mu_init.clone(), bias_rho_init.clone(), device=device, fixed=True)
+            bias_mu_prior.clone(), bias_rho_init.clone(), device=device, fixed=True)
 
         self.kl_div = 0
 
@@ -365,7 +390,7 @@ class ProbConv2d(nn.Module):
     """
 
     def __init__(self, in_channels, out_channels, kernel_size, rho_prior, prior_dist='gaussian',
-                 device='cuda', stride=1, padding=0, dilation=1, init_layer=None):
+                 device='cuda', stride=1, padding=0, dilation=1, init_prior='weights', init_layer=None, init_layer_prior=None):
         super().__init__()
         self.in_channels = in_channels
         self.out_channels = out_channels
@@ -394,6 +419,24 @@ class ProbConv2d(nn.Module):
             out_channels, in_channels, *self.kernel_size) * rho_prior
         bias_rho_init = torch.ones(out_channels) * rho_prior
 
+        if init_prior == 'zeros':
+            bias_mu_prior = torch.zeros(out_features) 
+            weights_mu_prior = torch.zeros(out_features, in_features)
+        elif init_prior == 'random':
+            weights_mu_prior = trunc_normal_(torch.Tensor(
+                out_channels, in_channels, *self.kernel_size), 0, sigma_weights, -2*sigma_weights, 2*sigma_weights)
+            bias_mu_prior = torch.zeros(out_features) 
+        elif init_prior == 'weights': 
+            if init_layer_prior:
+                weights_mu_prior = init_layer_prior.weight
+                bias_mu_prior = init_layer_prior.bias
+            else:
+                # otherwise initialise to posterior weights
+                weights_mu_prior = weights_mu_init
+                bias_mu_prior = bias_mu_init
+        else: 
+            raise RuntimeError(f'Wrong type of prior initialisation!')
+
         if prior_dist == 'gaussian':
             dist = Gaussian
         elif prior_dist == 'laplace':
@@ -406,9 +449,9 @@ class ProbConv2d(nn.Module):
         self.bias = dist(bias_mu_init.clone(),
                          bias_rho_init.clone(), device=device, fixed=False)
         self.weight_prior = dist(
-            weights_mu_init.clone(), weights_rho_init.clone(), device=device, fixed=True)
+            weights_mu_prior.clone(), weights_rho_init.clone(), device=device, fixed=True)
         self.bias_prior = dist(
-            bias_mu_init.clone(), bias_rho_init.clone(), device=device, fixed=True)
+            bias_mu_prior.clone(), bias_rho_init.clone(), device=device, fixed=True)
 
         self.kl_div = 0
 
