@@ -188,7 +188,7 @@ perc_prior=0.2, batch_size=250):
     else:
         raise RuntimeError(f'Architecture {model} not supported')
 
-    bound = PBBobj(objective, pmin, classes, train_size, delta,
+    bound = PBBobj(objective, pmin, classes, delta,
                     delta_test, mc_samples, kl_penalty, device)
 
     if objective == 'flamb':
