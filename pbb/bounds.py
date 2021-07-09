@@ -41,7 +41,7 @@ class PBBobj():
 
     """
     def __init__(self, objective='fquad', pmin=1e-4, classes=10, delta=0.025,
-    delta_test=0.01, mc_samples=1000, kl_penalty=1, device='cuda'):
+    delta_test=0.01, mc_samples=1000, kl_penalty=1, device='cuda', n_posterior=30000, n_bound=30000):
         super().__init__()
         self.objective = objective
         self.pmin = pmin
@@ -51,6 +51,9 @@ class PBBobj():
         self.delta_test = delta_test
         self.mc_samples = mc_samples
         self.kl_penalty = kl_penalty
+        self.n_posterior = n_posterior
+        self.n_bound = n_bound
+
 
     def compute_empirical_risk(self, outputs, targets, bounded=True):
         # compute negative log likelihood loss and bound it with pmin (if applicable)
@@ -139,21 +142,16 @@ class PBBobj():
 
     def train_obj(self, net, input, target, clamping=True, lambda_var=None):
         # compute train objective and return all metrics
-        train_size = input.shape[0]
         outputs = torch.zeros(target.size(0), self.classes).to(self.device)
         kl = net.compute_kl()
         loss_ce, loss_01, outputs = self.compute_losses(net,
                                                         input, target, clamping)
 
-        train_obj = self.bound(loss_ce, kl, train_size, lambda_var)
-        return train_obj, kl/train_size, outputs, loss_ce, loss_01
+        train_obj = self.bound(loss_ce, kl, self.n_posterior, lambda_var)
+        return train_obj, kl/self.n_posterior, outputs, loss_ce, loss_01
 
     def compute_final_stats_risk(self, net, input=None, target=None, data_loader=None, clamping=True, lambda_var=None):
         # compute all final stats and risk certificates
-        if data_loader:
-            train_size = len(data_loader.dataset)
-        else: 
-            train_size = input.shape[0] 
 
         kl = net.compute_kl()
         if data_loader:
@@ -168,13 +166,13 @@ class PBBobj():
         empirical_risk_01 = inv_kl(
             error_01, np.log(2/self.delta_test)/self.mc_samples)
 
-        train_obj = self.bound(empirical_risk_ce, kl, train_size, lambda_var)
+        train_obj = self.bound(empirical_risk_ce, kl, self.n_posterior, lambda_var)
 
         risk_ce = inv_kl(empirical_risk_ce, (kl + np.log((2 *
-                                                             np.sqrt(train_size))/self.delta_test))/train_size)
+                                                             np.sqrt(self.n_bound))/self.delta_test))/self.n_bound)
         risk_01 = inv_kl(empirical_risk_01, (kl + np.log((2 *
-                                                             np.sqrt(train_size))/self.delta_test))/train_size)
-        return train_obj.item(), kl.item()/train_size, empirical_risk_ce, empirical_risk_01, risk_ce, risk_01
+                                                             np.sqrt(self.n_bound))/self.delta_test))/self.n_bound)
+        return train_obj.item(), kl.item()/self.n_bound, empirical_risk_ce, empirical_risk_01, risk_ce, risk_01
 
 
 def inv_kl(qs, ks):

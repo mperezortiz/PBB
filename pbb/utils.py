@@ -12,6 +12,13 @@ from pbb.models import NNet4l, CNNet4l, ProbNNet4l, ProbCNNet4l, ProbCNNet9l, CN
 from pbb.bounds import PBBobj
 from pbb import data
 
+# TODOS: 1. make a train prior function (bbb, erm)
+#        2. make train posterior function 
+#        3. rename partitions of data (prior_data, posterior_data, eval_data)
+#        4. implement early stopping with validation set & speed
+#        5. add data augmentation (maria)
+#        6. better way of logging
+
 def runexp(name_data, objective, prior_type, model, sigma_prior, pmin, learning_rate, momentum, 
 learning_rate_prior=0.01, momentum_prior=0.95, delta=0.025, layers=9, delta_test=0.01, mc_samples=1000, 
 samples_ensemble=100, kl_penalty=1, initial_lamb=6.0, train_epochs=100, prior_dist='gaussian', 
@@ -158,6 +165,9 @@ perc_prior=0.2, batch_size=250):
                       device=device, verbose=verbose)
         errornet0 = testNNet(net0, test_loader, device=device)
 
+    posterior_n_size = len(train_loader.dataset)
+    bound_n_size = len(val_bound.dataset)
+
     toolarge = False
     train_size = len(train_loader.dataset)
     classes = len(train_loader.dataset.classes)
@@ -187,9 +197,10 @@ perc_prior=0.2, batch_size=250):
                         device=device, init_net=net0).to(device)
     else:
         raise RuntimeError(f'Architecture {model} not supported')
-
+    # import ipdb
+    # ipdb.set_trace()
     bound = PBBobj(objective, pmin, classes, delta,
-                    delta_test, mc_samples, kl_penalty, device)
+                    delta_test, mc_samples, kl_penalty, device, n_posterior = posterior_n_size, n_bound=bound_n_size)
 
     if objective == 'flamb':
         lambda_var = Lambda_var(initial_lamb, train_size).to(device)
